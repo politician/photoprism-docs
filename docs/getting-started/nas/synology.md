@@ -28,16 +28,7 @@ If your device runs out of memory, the index is frequently locked, or other syst
 Other issues? Our [troubleshooting checklists](../troubleshooting/index.md) help you quickly diagnose and solve them.
 
 
-## Setup using Docker & SQLite ##
-
-!!! attention ""
-    Note that [SQLite is generally not a good choice](../troubleshooting/sqlite.md) for users who require scalability and high performance.
-
-    Since we don't have a Synology test device, contributions to a step-by-step tutorial using mariadb are greatly appreciated.
-    You can contribute by clicking :material-file-edit-outline: to send a pull request with your changes.
-
-!!! example ""
-    **Help improve these docs!** You can contribute by clicking :material-file-edit-outline: to send a pull request with your changes.
+## Setup using Docker & MariaDB ##
 
 This guide describes how to set up PhotoPrism using the new Synology user interface.
 
@@ -50,7 +41,45 @@ This guide describes how to set up PhotoPrism using the new Synology user interf
 - for testing purposes, add some pictures to your photos folder
 - later, if you're ok with your setup, you can link your pictures to the photos folder
 
-### Get the image
+### Install MariaDB
+
+- Launch Synology Package Center
+- Search for `mariadb`
+- Click `install` to install the package. If it is already installed, skip to [Configure MariaDB](#configure-mariadb) below
+- When prompted for a new password, type a secure password (this will be your root password). If you forget it, you can reset it from DSM so it's ok to just remember it for the time of this tutorial.
+- The default port should be 3306 or some versions have 3307, it doesn't matter just leave it as is
+- Continue the installation wizard until the setup is complete
+- If you enabled the firewall in DSM, you will get a notification to add a MariaDB rule; for the pruprpose of this tutorial, we don't need external access to MariaDB, uncheck it and click OK. 
+
+### Configure MariaDB
+
+#### Connect to your NAS with SSH
+- In the Synology Control Panel, go to Terminal & SNMP
+- Enable SSH service (note the port)
+- On Linux/MacOS, open the terminal app, on Windows, use [OpenSSH](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse?tabs=gui) or [Putty](https://www.putty.org/)
+- Connect to your NAS using the following command where `USER` is the username you use to connect to DSM, `NAS_HOSTNAME` is the IP address or hostname you use to access DSM and `SSH_PORT` is the port specified for the SSH service in the DSM control panel:
+  ```sh
+  ssh USER@NAS_HOSTNAME -p SSH_PORT
+  ```
+- When prompted, enter the same password, you use to login to DSM
+
+#### Create the PhotoPrism Database and user
+- Once connected to your NAS via SSH, you need to connect to the MariaDB server you installed on your NAS
+- In the terminal window, type `mysql -u root -p`
+- When prompted, enter the root password for MariaDB (if you forgot it, you could reset it from the MariaDB app in DSM)
+- You should now have entered the MariaDB monitor and see something like this
+- Generate a secure password for the PhotoPrism DB user and make note of it
+- Create the PhotoPrism DB user with the following command (replace `SECURE_PASSWORD` with the password you generated):
+  ```sql
+  CREATE USER 'photoprism'@'%' IDENTIFIED BY 'SECURE_PASSWORD';
+  ```
+- Create the PhotoPrism database and grant permissions to the PhotoPrism user:
+  ```sql
+  CREATE DATABASE photoprism;
+  GRANT ALL PRIVILEGES ON photoprism.* TO 'photoprism'@'%';
+  ```
+
+### Get the PhotoPrism Docker image
 - Launch Docker
 - Search for photoprism/photoprism in the Registry
 - Download and choose your flavor
@@ -67,8 +96,8 @@ This guide describes how to set up PhotoPrism using the new Synology user interf
 
   ![Photoprism_3_en](./img/synology/Photoprism_3_en.jpg){ class="shadow" }
 
-- enter values for PHOTPRISM_SITE_DESCRIPTION and PHOTOPRISM_SITE_AUTOR
-- PHOTOPRISM_DATABASE_SERVER and PHOTOPRISM_DATABASE_PASSWORD are used for mariadb. It is recommended to use mariadb but not part of this guide
+- enter values for PHOTOPRISM_SITE_DESCRIPTION and PHOTOPRISM_SITE_AUTHOR
+- Enter `localhost:3306` (or 3307 if this was your MariaDB default port) for PHOTOPRISM_DATABASE_SERVER and the PhotoPrism DB secure password you generated in the [Configure MariaDB](#configure-mariadb) step above for PHOTOPRISM_DATABASE_PASSWORD. 
 - Save
 
   ![Photoprism_4_2_en](./img/synology/Photoprism_4_2_en.jpg){ class="shadow" }
@@ -88,7 +117,7 @@ This guide describes how to set up PhotoPrism using the new Synology user interf
 
 - Done
 - Run the container and give it some minutes to create
-- connect to your instance of Photoprism with your browser ip-to-your-nas:port and login
+- connect to your instance of Photoprism with your browser ip-to-your-nas:port and login with `admin` and the PhotoPrism password you set in PHOTOPRISM_ADMIN_PASSWORD
 
 ### First Steps
 
@@ -170,7 +199,7 @@ With Portainer installed we can use a docker-compose.yml file to deploy a stack 
 
 **BE SURE TO USE YOUR OWN PHOTOPRISM_ADMIN_PASSWORD, PHOTOPRISM_DATABASE_PASSWORD, MYSQL_ROOT_PASSWORD, AND MYSQL_PASSWORD BY CHANGING THE VALUES ACCORDINGLY, AND CHECK THE LOCAL VOLUMES PATHS TO MATCH THOSE DEFINED IN STEP 13**.
 
-16. Click _Deploy the stack_. Give it a few minutes and PhotoPrism should be accessible in http://[YOUR-LOCAL-IP]:[LOCAL-PORT]/.
+16. Click _Deploy the stack_. Give it a few minutes and PhotoPrism should be accessible in http://[YOUR-LOCAL-IP]:[LOCAL-PORT]/. 
 
 !!! info
     Synology automatically creates thumbnail files inside a special `@eaDir` folder when uploading 
